@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>美的空气炸锅评论数据分析系统 - 技术原理报告</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, 'Microsoft YaHei', sans-serif; line-height: 1.8; color: #2c3e50; background: #f5f7fa; padding: 40px 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 60px; }
+        h1 { text-align: center; font-size: 28px; margin-bottom: 10px; color: #1a1a2e; }
+        .subtitle { text-align: center; color: #7f8c8d; margin-bottom: 50px; font-size: 15px; }
+        h3 { font-size: 18px; color: #34495e; margin: 30px 0 15px; }
+        h4 { font-size: 16px; color: #2c3e50; margin: 20px 0 10px; }
+        p { margin-bottom: 15px; text-indent: 2em; }
+        .no-indent { text-indent: 0; }
+        .highlight { background: #eaf4fc; border-left: 4px solid #3498db; padding: 15px 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+        .highlight p { text-indent: 0; margin-bottom: 8px; }
+        .warn { background: #fef9e7; border-left: 4px solid #f39c12; padding: 15px 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+        .warn p { text-indent: 0; margin-bottom: 8px; }
+
+        details { margin: 20px 0; border: 1px solid #e8e8e8; border-radius: 10px; overflow: hidden; }
+        details[open] { border-color: #3498db; }
+        summary { font-size: 20px; font-weight: bold; color: #2c3e50; padding: 18px 25px;
+            cursor: pointer; background: #f8fafc; border-bottom: 1px solid #e8e8e8;
+            list-style: none; display: flex; align-items: center; gap: 12px;
+            transition: background 0.2s; user-select: none; }
+        summary:hover { background: #eef5fb; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: ""; display: inline-block; width: 0; height: 0;
+            border-left: 8px solid #3498db; border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent; transition: transform 0.2s; flex-shrink: 0; }
+        details[open] > summary::before { transform: rotate(90deg); }
+        details[open] > summary { background: #eaf4fc; border-bottom-color: #3498db; }
+        .section-content { padding: 25px 30px; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<h1>美的空气炸锅京东评论数据分析系统</h1>
+<p class="subtitle">技术原理与答辩参考文档（点击各章节标题展开/收起）</p>
+
+<!-- ==================== 第一部分 ==================== -->
+<details open>
+<summary>一、项目是什么？</summary>
+<div class="section-content">
+
+<p>这是一个<strong>电商评论数据分析系统</strong>。它做的事情很简单：从京东平台爬取了美的空气炸锅产品的 <strong>21,724 条真实用户评论</strong>，然后用多种数据分析方法对这些评论进行深度挖掘，最终以可视化图表的形式展示分析结果。</p>
+
+<div class="highlight">
+<p><strong>一句话概括：</strong>把2万多条用户的文字评论，变成看得懂的图表和结论，帮助商家了解消费者到底在意什么、满意什么、不满意什么。</p>
+</div>
+
+<h3>1.1 系统由哪几部分组成？</h3>
+<p>整个系统分为三层，就像一个三明治：</p>
+<div class="highlight">
+<p><strong>第一层 - 数据源：</strong>一份 Excel 文件（美的.xlsx），里面存着从京东爬取的评论原始数据，包含：用户ID、评价星级、评价内容、时间、商品属性等字段。</p>
+<p><strong>第二层 - 后端服务器（Python Flask）：</strong>负责读取数据、执行所有分析算法、把结果以接口形式提供给前端。这是整个系统的"大脑"。</p>
+<p><strong>第三层 - 前端页面（HTML + ECharts）：</strong>负责把分析结果画成各种图表展示给用户看。这是系统的"脸面"。</p>
+</div>
+
+<h3>1.2 系统有哪些功能模块？</h3>
+<p>系统一共分为<strong>5大模块、11个分析页面</strong>：</p>
+<div class="highlight">
+<p><strong>模块一 · 数据概览：</strong>一目了然地展示总评论数、好评率、平均星级、促销标签数。</p>
+<p><strong>模块二 · 基础数据分析：</strong>评论长度分布、促销标签统计、星级分布、时间趋势。</p>
+<p><strong>模块三 · 消费者特征分析：</strong>TF-IDF 关键词提取、消费者偏好雷达图。</p>
+<p><strong>模块四 · 深度文本分析：</strong>SnowNLP 情感分析、LDA 主题建模。</p>
+<p><strong>模块五 · 用户聚类分析：</strong>K-Means 聚类画像。</p>
+</div>
+
+</div>
+</details>
+
+<!-- ==================== 第二部分 ==================== -->
+<details>
+<summary>二、数据从哪来？怎么处理的？</summary>
+<div class="section-content">
+
+<h3>2.1 原始数据字段</h3>
+<p>数据来源于京东平台美的空气炸锅商品页面的真实用户评论。通过爬虫采集后存入 Excel 文件，每条记录包含以下字段：</p>
+<div class="highlight">
+<p><strong>会员</strong> — 用户的京东昵称（已脱敏，如"云***号"）</p>
+<p><strong>评价星级</strong> — 用户打的1~5星</p>
+<p><strong>评价内容</strong> — 用户写的评论文字（这是最核心的分析对象）</p>
+<p><strong>时间</strong> — 评论发布时间</p>
+<p><strong>商品属性</strong> — 用户购买的具体规格型号，如"【金榜】行业TOP1空炸5.3L"</p>
+<p><strong>页面标题</strong> — 商品页标题</p>
+</div>
+
+<h3>2.2 数据预处理流程（"洗数据"）</h3>
+<p>原始数据不能直接拿来分析，就像做菜前要洗菜切菜一样。系统启动时会自动执行以下处理：</p>
+<p><strong>第一步：去除空评论。</strong>如果某条记录的"评价内容"为空，直接丢弃。</p>
+<p><strong>第二步：文本清洗。</strong>去掉评论中的标点符号、特殊字符、换行符等，只保留中文汉字和英文字母数字。最终剩余 <strong>21,724 条有效评论</strong>。</p>
+<p><strong>第三步：提取商品容量。</strong>从"商品属性"字段中用正则表达式提取出容量数字，如"5.3L"。</p>
+<p><strong>第四步：提取促销标签。</strong>从"商品属性"字段中提取【】内的文字，如"金榜"、"双可视"等。</p>
+<p><strong>第五步：计算评论字数。</strong>统计每条评论的原始字符数，用于后续的用户参与度分析。</p>
+<div class="warn">
+<p><strong>通俗理解：</strong>数据预处理就像是把一堆杂乱的调查问卷整理成规范的电子表格——去掉空白的、修正格式错误的、补全缺失信息的。这样后续的分析才有意义。</p>
+</div>
+
+</div>
+</details>
+
+<!-- ==================== 第三部分 ==================== -->
+<details>
+<summary>三、基础数据分析模块</summary>
+<div class="section-content">
+
+<h3>3.1 评论长度与用户参与度分析</h3>
+<h4>分析什么？</h4>
+<p>统计每条评论有多少个字，然后观察：大部分用户写多长的评论？不同满意度（星级）的用户写评论的长度有没有差异？</p>
+<h4>怎么分析的？</h4>
+<p>将评论按字数分成5个区间：0-20字、20-50字、50-100字、100-200字、200字以上，统计每个区间有多少条评论。同时按1星到5星分组，计算每个星级对应评论的平均字数。</p>
+<h4>能得出什么结论？</h4>
+<div class="highlight">
+<p>大部分评论集中在50-200字（占比约90%），说明用户普遍愿意写一定篇幅的评价。</p>
+<p>5星用户平均评论最短（约84字），而2星用户评论最长（约100字）。这说明<strong>不满意的用户更倾向于详细描述问题</strong>，而满意的用户倾向于简短表达好评。</p>
+</div>
+
+<h3>3.2 促销标签与评论量关联分析</h3>
+<p>从商品属性字段中提取【】内的标签文字，然后按标签分组计数，取评论量最多的前10个标签展示，反映哪个版本最受欢迎。</p>
+
+<h3>3.3 用户评分分布分析</h3>
+<p>统计1星到5星各有多少条评论，展示为饼图。直观反映用户整体满意度。</p>
+
+<h3>3.4 评论时间分布分析</h3>
+<p>按月统计评论数量的变化趋势。可以看出产品的销量高峰期（如双11、618促销期间评论暴增），也能反映产品生命周期。</p>
+
+</div>
+</details>
+
+<!-- ==================== 第四部分 ==================== -->
+<details>
+<summary>四、TF-IDF 关键词与消费者偏好分析</summary>
+<div class="section-content">
+
+<h3>4.1 什么是 TF-IDF？</h3>
+<p>TF-IDF 全称是 "Term Frequency - Inverse Document Frequency"，中文叫<strong>"词频-逆文档频率"</strong>。它是一种判断一个词有多重要的数学方法。</p>
+<div class="highlight">
+<p><strong>打个比方：</strong>假设你要从1000份求职简历中找出程序员的简历。"的"、"了"这些词几乎每份简历都有，它们虽然出现频率高，但没有区分度，所以不重要。而"Python"、"算法"这些词，只在程序员的简历中频繁出现，在其他简历中很少见——它们才是真正有"特征性"的关键词。</p>
+</div>
+<p><strong>TF（词频）：</strong>一个词在某条评论中出现的次数越多，TF值越高。</p>
+<p><strong>IDF（逆文档频率）：</strong>一个词在所有评论中出现得越"稀有"，IDF值越高。</p>
+<p><strong>TF-IDF = TF × IDF</strong>，一个词只有同时满足"在某些文档中频繁出现"且"不是到处都有的废话"这两个条件，得分才高。</p>
+
+<h3>4.2 本系统怎么用 TF-IDF？</h3>
+<p><strong>第一步：中文分词。</strong>用 jieba 分词库把句子拆成词。例如"这款产品非常好用"→"这款/产品/非常/好用"。</p>
+<p><strong>第二步：去除停用词。</strong>"的"、"了"、"是"等无意义词会被过滤掉。</p>
+<p><strong>第三步：计算 TF-IDF 值。</strong>使用 sklearn 库的 TfidfVectorizer，提取出权重最高的前30个关键词。</p>
+
+<h3>4.3 消费者偏好雷达图</h3>
+<p>在得到关键词及其权重后，系统把关键词归类到4个消费者关注维度：</p>
+<div class="highlight">
+<p><strong>外观颜值：</strong>好看、颜值、漂亮、美观、小巧</p>
+<p><strong>产品容量：</strong>容量、大小、合适、够用</p>
+<p><strong>产品价格：</strong>价格、便宜、划算、性价比、实惠</p>
+<p><strong>功能质量：</strong>功能、质量、好用、方便、声音、味道</p>
+</div>
+<p>将各维度下所有匹配关键词的 TF-IDF 权重求和，得到每个维度的"消费者关注度得分"，画成雷达图。雷达图上哪个方向延伸得最远，就说明消费者最在意哪方面。</p>
+
+</div>
+</details>
+
+<!-- ==================== 第五部分 ==================== -->
+<details>
+<summary>五、SnowNLP 情感分析</summary>
+<div class="section-content">
+
+<h3>5.1 什么是情感分析？</h3>
+<p>情感分析就是让计算机自动判断一段文字表达的是"积极情绪"还是"消极情绪"。</p>
+<div class="highlight">
+<p><strong>通俗理解：</strong>情感分析就像是一个能读懂语气的机器人。你给它一句话，它会告诉你"这个人高兴"或者"这个人不高兴"，并且给出一个0到1之间的分数——0代表非常不满意，1代表非常满意。</p>
+</div>
+
+<h3>5.2 SnowNLP 是什么？</h3>
+<p>SnowNLP 是一个 Python 中文自然语言处理库，它内部有一个预训练好的情感分类模型。给它输入一段中文文字，它会输出一个0~1之间的情感得分。</p>
+
+<h3>5.3 为什么需要"混合计分"而不是直接用 SnowNLP？</h3>
+<p>SnowNLP 的训练数据比较老旧，对现代电商长评论经常失准。比如一条100多字的好评，SnowNLP 可能只给出 0.11 的低分，但用户明明打了5星。</p>
+<p>本系统设计了<strong>混合情感评分算法</strong>，综合三个信号源：</p>
+<div class="highlight">
+<p><strong>信号1 - SnowNLP原始得分：</strong>机器学习模型对文本的判断（可能不准）。</p>
+<p><strong>信号2 - 用户自己打的星级：</strong>5星=满意，1星=不满意（最直接的信号）。</p>
+<p><strong>信号3 - 情感关键词：</strong>文本中是否包含明确的情感词，如"推荐"（积极）或"退货"（消极）。</p>
+</div>
+
+<h4>混合评分的具体规则：</h4>
+<p><strong>情况一：低星级（1-3星）且出现负面词或SnowNLP得分低</strong><br>
+公式：最终得分 = SnowNLP×0.4 + 星级/5×0.4 - 负面词数量×0.05</p>
+<p><strong>情况二：高星级（4-5星）但 SnowNLP 判了低分</strong><br>
+公式：最终得分 = 0.65 + 星级/5×0.2 + 正面词数量×0.02<br>
+→ 纠偏：用户打了高分，就不该被判为差评。</p>
+<p><strong>情况三：高星级且 SnowNLP 也判了高分</strong><br>
+公式：最终得分 = SnowNLP×0.4 + 星级/5×0.6 + 正面词数量×0.02</p>
+
+<h3>5.4 情感分类阈值</h3>
+<div class="highlight">
+<p>得分 > 0.6 → <strong>正面评论</strong></p>
+<p>得分 < 0.4 → <strong>负面评论</strong></p>
+<p>0.4 ~ 0.6 → <strong>中性评论</strong></p>
+</div>
+
+<h3>5.5 词云图的含义</h3>
+<p>对正面评论和负面评论分别做分词统计，把出现次数最多的词画成"词云"——词越大代表出现越多。正面词云看用户最常夸什么，负面词云看用户最常抱怨什么。</p>
+
+</div>
+</details>
+
+<!-- ==================== 第六部分 ==================== -->
+<details>
+<summary>六、LDA 主题建模分析</summary>
+<div class="section-content">
+
+<h3>6.1 什么是 LDA？</h3>
+<p>LDA 全称 Latent Dirichlet Allocation（隐含狄利克雷分配），是一种<strong>主题模型</strong>算法。</p>
+<div class="highlight">
+<p><strong>打个比方：</strong>假设你面前有一万篇报纸文章，你想知道这些文章都在讨论什么"话题"。你肉眼看不完，但 LDA 能自动帮你归纳出：有些文章在谈"体育"，有些在谈"经济"，有些在谈"科技"……每个话题都由一组特征词描述。</p>
+<p>放到本项目中：LDA 自动从2万多条评论中发现"隐藏的讨论主题"，比如"有些评论在讨论外观"、"有些在讨论烹饪效果"、"有些在抱怨售后"。</p>
+</div>
+
+<h3>6.2 LDA 的核心假设</h3>
+<p>LDA 认为：每条评论是由多个主题"混合"而成的。比如一条评论可能 60% 在谈"外观"，40% 在谈"功能"。而每个主题则是由一组词的概率分布定义的——"外观"主题下"颜值"、"好看"、"漂亮"出现的概率高。</p>
+
+<h3>6.3 本系统的 LDA 实现流程</h3>
+<p><strong>第一步：构建文档-词矩阵。</strong>把每条评论表示为"哪些词出现了几次"的向量，所有评论排在一起形成一个大矩阵。</p>
+<p><strong>第二步：确定最优主题数。</strong>系统分别尝试 k=2, 3, 4, 5, 6 个主题，计算每种情况下的"困惑度"。系统最终选择 k=4 作为最优主题数。</p>
+<p><strong>第三步：分情感主题提取。</strong>分别对正面评论、负面评论、全量评论各做一次 LDA，得到不同情感下消费者讨论的主题差异。</p>
+
+<h3>6.4 评估指标解读</h3>
+<div class="highlight">
+<p><strong>困惑度（Perplexity）：</strong>衡量模型的预测能力。值越小说明模型越好。</p>
+<p><strong>一致性（Coherence）：</strong>衡量同一主题内的词是否语义相关。</p>
+<p><strong>相似度（Similarity）：</strong>衡量不同主题之间是否有重叠。主题之间越不相似越好。</p>
+</div>
+
+<h3>6.5 pyLDAvis 交互可视化</h3>
+<p>系统还提供了 pyLDAvis 生成的交互式图谱。左侧圆圈代表各个主题，圆圈越大表示该主题覆盖的评论越多；圆圈之间的距离表示主题之间的相似程度——距离越远，主题差异越大。右侧展示选中主题的高频词排名。</p>
+
+</div>
+</details>
+
+<!-- ==================== 第七部分 ==================== -->
+<details>
+<summary>七、K-Means 用户聚类分析</summary>
+<div class="section-content">
+
+<h3>7.1 什么是聚类？什么是 K-Means？</h3>
+<p>聚类就是"物以类聚"——把相似的东西自动分到一组。K-Means 是最经典的聚类算法之一。</p>
+<div class="highlight">
+<p><strong>打个比方：</strong>想象你面前有一盘混在一起的彩色豆子（红、绿、黄、蓝），你要把它们按颜色分成4堆。K-Means 做的就是这件事，只不过它不是按"颜色"分，而是按"多个维度的特征"分。</p>
+<p>在本项目中：把2万多个用户按照他们"关注什么"分成4类人群。</p>
+</div>
+
+<h3>7.2 K-Means 算法步骤</h3>
+<p><strong>第一步：</strong>随机选4个点作为初始"中心"。</p>
+<p><strong>第二步：</strong>把每条评论分配给离它最近的中心点。</p>
+<p><strong>第三步：</strong>重新计算每组的中心位置。</p>
+<p><strong>第四步：</strong>重复第二、三步，直到分组不再变化。</p>
+
+<h3>7.3 本系统的特征构建</h3>
+<p>对每条评论，系统从文本中提取5个维度的数值特征：</p>
+<div class="highlight">
+<p><strong>外观关注度：</strong>评论中是否提到"好看"、"颜值"、"漂亮"等外观相关词</p>
+<p><strong>容量需求：</strong>是否提到"容量"、"大小"、"够用"、"一家人"等</p>
+<p><strong>价格敏感度：</strong>是否提到"便宜"、"性价比"、"划算"、"打折"等</p>
+<p><strong>功能要求：</strong>是否提到"好用"、"方便"、"噪音"、"智能"等</p>
+<p><strong>情感得分：</strong>前面情感分析计算出的0~1分数</p>
+</div>
+<p>每条评论变成了一个5维向量，比如 [0.5, 0, 1.0, 0.5, 0.85] 代表"比较关注外观、不关注容量、很关注价格、比较关注功能、情感很正面"。</p>
+
+<h3>7.4 聚类结果解读</h3>
+<div class="highlight">
+<p><strong>追求性价比群体：</strong>价格敏感度维度得分最高的一组——最在意划不划算。</p>
+<p><strong>外观颜值党：</strong>外观关注度维度得分最高的一组——最在意产品好不好看。</p>
+<p><strong>实用主义群体：</strong>容量+功能两个维度综合得分最高——关注实际使用体验。</p>
+<p><strong>高端体验关注群体：</strong>剩余的一组——综合各方面都有一定关注。</p>
+</div>
+<p>雷达图展示了4类群体在5个维度上的对比差异。这对商家的意义在于：可以针对不同群体制定不同的营销策略。</p>
+
+</div>
+</details>
+
+<!-- ==================== 第八部分 ==================== -->
+<details>
+<summary>八、技术栈总览</summary>
+<div class="section-content">
+
+<div class="highlight">
+<p><strong>编程语言：</strong>Python 3（后端）、HTML/CSS/JavaScript（前端）</p>
+<p><strong>Web框架：</strong>Flask（轻量级 Python Web 框架，负责提供 API 接口和页面服务）</p>
+<p><strong>数据处理：</strong>Pandas（表格数据处理）、NumPy（数值计算）</p>
+<p><strong>中文分词：</strong>jieba（最流行的 Python 中文分词库）</p>
+<p><strong>情感分析：</strong>SnowNLP（中文情感分析库）</p>
+<p><strong>机器学习：</strong>scikit-learn（提供 TF-IDF、LDA、K-Means 算法实现）</p>
+<p><strong>主题可视化：</strong>pyLDAvis（LDA 主题模型交互式可视化）</p>
+<p><strong>前端图表：</strong>ECharts（百度开源的数据可视化图表库）</p>
+<p><strong>词云：</strong>echarts-wordcloud（ECharts 词云插件）</p>
+<p><strong>数据库：</strong>MySQL（仅用于用户登录注册系统）</p>
+<p><strong>数据源格式：</strong>Excel（.xlsx）</p>
+</div>
+
+</div>
+</details>
+
+<!-- ==================== 第九部分 ==================== -->
+<details>
+<summary>九、系统架构与数据流</summary>
+<div class="section-content">
+
+<p>整个系统的数据流可以概括为：</p>
+<div class="highlight">
+<p><strong>京东评论 → Excel文件 → Python后端读取并分析 → JSON接口 → 前端ECharts渲染图表 → 用户在浏览器中查看</strong></p>
+</div>
+<p>后端在服务启动时一次性将 Excel 数据加载到内存中（耗时较长，因为要对2万多条评论逐条计算情感得分），之后所有前端请求都直接从内存中读取已处理好的数据，响应速度很快。</p>
+<p>对于计算量特别大的分析（如关键词、情感分析、LDA、K-Means），后端使用了 <strong>Server-Sent Events（SSE）</strong> 技术——服务器在计算过程中持续向前端推送进度百分比，前端实时显示进度条，而不是让用户干等一个空白页面。</p>
+
+</div>
+</details>
+
+<!-- ==================== 第十部分 ==================== -->
+<details>
+<summary>十、答辩常见问题与回答参考</summary>
+<div class="section-content">
+
+<h3>Q1：你的数据从哪来的？数据量有多少？</h3>
+<div class="highlight">
+<p>数据来源于京东电商平台美的空气炸锅商品页面的真实用户评论，通过 Python 爬虫采集。原始数据共 21,728 条，经过清洗后有效数据 21,724 条。数据字段包括用户ID、评价星级、评价内容、评论时间、商品属性等。</p>
+</div>
+
+<h3>Q2：为什么选择 SnowNLP 做情感分析？它有什么缺点？你怎么解决的？</h3>
+<div class="highlight">
+<p>选择 SnowNLP 是因为它是 Python 生态中最轻量的中文情感分析工具，开箱即用不需要额外训练。</p>
+<p>缺点：SnowNLP 的训练语料较老，对现代电商长评论容易误判。</p>
+<p>解决方案：设计了混合评分算法，融合 SnowNLP 原始得分、用户星级、情感关键词三个信号源，通过加权组合和纠偏逻辑来弥补 SnowNLP 的不足。</p>
+</div>
+
+<h3>Q3：TF-IDF 和普通词频统计有什么区别？</h3>
+<div class="highlight">
+<p>普通词频统计只看"一个词出现了多少次"，结果会被无意义高频词干扰。</p>
+<p>TF-IDF 额外考虑了"逆文档频率"——一个词如果在每条评论中都出现，即使频率高也会被降权；只有那些在特定评论中集中出现、但整体上不普遍的词才会获得高权重。</p>
+</div>
+
+<h3>Q4：LDA 主题数（k值）是怎么确定的？</h3>
+<div class="highlight">
+<p>系统遍历 k=2到6，对每个 k 值训练 LDA 模型并计算困惑度（Perplexity）。困惑度反映模型对数据的拟合程度，值越低越好。综合评估后选择 k=4 作为最优主题数。</p>
+</div>
+
+<h3>Q5：K-Means 的 K=4 是怎么确定的？</h3>
+<div class="highlight">
+<p>本项目设定 K=4 是基于业务意义的考量：从营销角度，将消费者细分为4类在商业场景中有明确的策略对应。也可以通过"肘部法则"（Elbow Method）来确定最优 K 值。</p>
+</div>
+
+<h3>Q6：系统的创新点在哪？</h3>
+<div class="highlight">
+<p>1. <strong>混合情感评分算法：</strong>融合机器学习得分、用户显式评分、关键词信号三路纠偏。</p>
+<p>2. <strong>分情感主题建模：</strong>对正面和负面评论分别进行 LDA 主题提取。</p>
+<p>3. <strong>多维用户画像聚类：</strong>从文本中自动提取用户关注维度，结合情感倾向进行聚类。</p>
+<p>4. <strong>全流程可视化：</strong>从数据到洞察全链路可视化呈现，SSE 实时进度反馈。</p>
+</div>
+
+<h3>Q7：jieba 分词的原理是什么？</h3>
+<div class="highlight">
+<p>jieba 分词使用三种机制协同工作：</p>
+<p>1. <strong>基于前缀词典：</strong>内置大规模中文词典，构建有向无环图（DAG），用动态规划找最优切分路径。</p>
+<p>2. <strong>HMM模型：</strong>对词典中没有的新词，用隐马尔可夫模型来识别。</p>
+<p>3. <strong>用户自定义词典：</strong>可手动添加领域专用词汇。</p>
+</div>
+
+<h3>Q8：停用词是什么？为什么要去除？</h3>
+<div class="highlight">
+<p>停用词是频繁出现但不携带实际语义信息的词，如"的"、"了"、"是"等。不去除的话，词云和 TF-IDF 结果会被这些无意义词霸占。本系统维护了三份停用词表：通用停用词、积极情感停用词、消极情感停用词。</p>
+</div>
+
+<h3>Q9：这个系统有什么实际应用价值？</h3>
+<div class="highlight">
+<p><strong>对商家：</strong>快速了解消费者真实评价和需求偏好，指导产品改进和营销策略。</p>
+<p><strong>对运营人员：</strong>通过聚类画像了解不同用户群体特征，实现差异化运营。</p>
+<p><strong>对产品经理：</strong>通过 LDA 主题分析发现核心话题，确定产品迭代方向优先级。</p>
+<p><strong>对市场研究：</strong>时间趋势分析反映市场热度变化，促销标签分析评估营销活动效果。</p>
+</div>
+
+<h3>Q10：SSE（Server-Sent Events）是什么？为什么要用它？</h3>
+<div class="highlight">
+<p>SSE 是一种服务器向浏览器单向推送数据的技术。LDA 和 K-Means 的计算可能要几十秒，使用 SSE 后服务器可以持续推送进度信息，前端实时更新进度条，用户体验好很多。</p>
+</div>
+
+<h3>Q11：Flask 是什么？为什么选择它？</h3>
+<div class="highlight">
+<p>Flask 是 Python 的轻量级 Web 框架。选择原因：项目规模不大，不需要全家桶框架；代码简洁直观，适合数据分析类项目快速开发；与 Python 数据科学生态集成方便。</p>
+</div>
+
+<h3>Q12：你的系统有什么不足或可以改进的地方？</h3>
+<div class="highlight">
+<p>1. <strong>情感分析准确率：</strong>如果能用 BERT 等深度学习模型做微调效果会更好。</p>
+<p>2. <strong>启动速度：</strong>可以考虑预计算并缓存情感得分结果。</p>
+<p>3. <strong>实时性：</strong>可以加入定时爬虫实现数据的持续更新。</p>
+<p>4. <strong>聚类数量：</strong>可以增加肘部法则的自动化选择 K 值。</p>
+</div>
+
+</div>
+</details>
+
+<!-- ==================== 第十一部分 ==================== -->
+<details>
+<summary>十一、核心算法公式速查</summary>
+<div class="section-content">
+
+<h3>TF-IDF 公式</h3>
+<div class="highlight">
+<p><strong>TF(t, d) = 词t在文档d中出现的次数 / 文档d的总词数</strong></p>
+<p><strong>IDF(t) = log(总文档数 / 包含词t的文档数)</strong></p>
+<p><strong>TF-IDF(t, d) = TF(t, d) × IDF(t)</strong></p>
+<p>解读：一个词在某篇文章中出现很多次（TF高），同时在大部分其他文章中都不出现（IDF高），那它对这篇文章就特别有代表性。</p>
+</div>
+
+<h3>K-Means 目标函数</h3>
+<div class="highlight">
+<p><strong>J = Σ Σ ||x - μ_k||²</strong></p>
+<p>（对每个簇内的每个点，计算它到簇中心的距离的平方，全部加起来）</p>
+<p>解读：K-Means 的目标是让每个组内的成员尽量相似（距中心近），组间尽量不同。</p>
+</div>
+
+<h3>LDA 核心思想</h3>
+<div class="highlight">
+<p>LDA 假设每篇文档由若干主题混合而成，每个主题由一组词的概率分布定义：</p>
+<p><strong>文档 → 主题分布（如：60%谈外观 + 40%谈功能）</strong></p>
+<p><strong>主题 → 词分布（如：外观主题下"颜值"概率0.15、"好看"概率0.12...）</strong></p>
+<p>LDA 通过统计推断，从大量文本中自动反推出这些隐藏的主题结构。</p>
+</div>
+
+<h3>情感分析混合评分（本系统自定义）</h3>
+<div class="highlight">
+<p><strong>高星级 + SnowNLP误判：</strong>Score = 0.65 + (Star/5)×0.2 + 正面词数×0.02</p>
+<p><strong>高星级 + SnowNLP正常：</strong>Score = SnowNLP×0.4 + (Star/5)×0.6 + 正面词数×0.02</p>
+<p><strong>低星级 + 负面信号：</strong>Score = SnowNLP×0.4 + (Star/5)×0.4 - 负面词数×0.05</p>
+<p><strong>分类阈值：</strong>> 0.6 正面 | < 0.4 负面 | 0.4~0.6 中性</p>
+</div>
+
+</div>
+</details>
+
+<!-- ==================== 第十二部分 ==================== -->
+<details>
+<summary>十二、项目文件结构</summary>
+<div class="section-content">
+
+<div class="highlight">
+<p class="no-indent" style="font-family: monospace; white-space: pre; line-height: 1.6;">
+DataAnalysis/
+├── 美的.xlsx                    ← 原始数据文件（21728条京东评论）
+├── requirements.txt             ← Python依赖包列表
+├── 项目安装依赖说明.txt
+├── backend/
+│   ├── main.py                  ← 后端核心代码（Flask服务器 + 所有分析算法）
+│   ├── init_db.py               ← 数据库初始化脚本（创建用户表）
+│   ├── 停用词.txt               ← 通用停用词表
+│   ├── 积极情感停用词.txt        ← 正面分析专用停用词
+│   └── 消极情感停用词.txt        ← 负面分析专用停用词
+├── frontend/
+│   ├── index.html               ← 主页面（侧边栏导航 + iframe框架）
+│   ├── login.html               ← 登录页面
+│   ├── css/style.css            ← 全局样式
+│   ├── static/                  ← 前端静态库（ECharts、Axios等）
+│   ├── photos/                  ← 登录页背景图
+│   └── pages/                   ← 各分析页面
+│       ├── overview.html             数据概览
+│       ├── basic_comment_length.html 评论长度与参与度分析
+│       ├── basic_promo.html          促销标签分析
+│       ├── basic_score.html          星级分布分析
+│       ├── basic_time.html           时间趋势分析
+│       ├── keywords_stat.html        TF-IDF关键词统计
+│       ├── keywords_tfidf.html       偏好雷达图
+│       ├── sentiment.html            情感分析总览
+│       ├── sentiment_positive.html   积极评论词云
+│       ├── sentiment_negative.html   消极评论词云
+│       ├── lda.html                  LDA主题分析
+│       ├── kmeans_midea.html         用户群体聚类
+│       └── kmeans_viz.html           聚类雷达图可视化
+</p>
+</div>
+
+</div>
+</details>
+
+<hr style="margin: 50px 0; border: 0; border-top: 2px dashed #eee;">
+<p style="text-align: center; color: #95a5a6; font-size: 13px; text-indent: 0;">— 报告结束 —</p>
+
+</div>
+</body>
+</html>
