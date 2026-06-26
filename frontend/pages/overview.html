@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>数据概览</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="../static/axios.min.js"></script>
+    <script src="../static/progress.js"></script>
+    <style>
+        .overview-cards {
+            display: flex;
+            gap: 25px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .overview-card {
+            flex: 1;
+            min-width: 220px;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 35px 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+        .overview-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+        }
+        .overview-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+        }
+        .card-1::before { background: linear-gradient(to right, #4facfe, #00f2fe); }
+        .card-2::before { background: linear-gradient(to right, #43e97b, #38f9d7); }
+        .card-3::before { background: linear-gradient(to right, #fa709a, #fee140); }
+        .card-4::before { background: linear-gradient(to right, #a18cd1, #fbc2eb); }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+        }
+        .card-1 .card-icon { background: rgba(79, 172, 254, 0.1); color: #4facfe; }
+        .card-2 .card-icon { background: rgba(67, 233, 123, 0.1); color: #43e97b; }
+        .card-3 .card-icon { background: rgba(250, 112, 154, 0.1); color: #fa709a; }
+        .card-4 .card-icon { background: rgba(161, 140, 209, 0.1); color: #a18cd1; }
+
+        .overview-card h3 {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+        .overview-card p {
+            font-size: 42px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            text-shadow: 1px 1px 0px rgba(0,0,0,0.02);
+        }
+    </style>
+</head>
+<body style="background: transparent; overflow-y: auto; display: block; height: auto;">
+    <div class="page-container">
+        <h2 class="page-title">数据概览</h2>
+        <div id="loading" class="loading">
+            <div class="loading-label">正在加载数据，请稍候...</div>
+            <div class="progress-text">0%/100%</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-inner"></div></div>
+        </div>
+        <div id="error" class="error-msg" style="display:none;"></div>
+        
+        <div class="overview-cards" id="content" style="display:none;">
+            <div class="overview-card card-1">
+                <div class="card-icon">💬</div>
+                <h3>总评论数</h3>
+                <p id="total-comments">-</p>
+            </div>
+            <div class="overview-card card-2">
+                <div class="card-icon">😊</div>
+                <h3>正面评论占比</h3>
+                <p id="positive-rate">-</p>
+            </div>
+            <div class="overview-card card-3">
+                <div class="card-icon">⭐</div>
+                <h3>平均评分星级</h3>
+                <p id="avg-score">-</p>
+            </div>
+            <div class="overview-card card-4">
+                <div class="card-icon">🏷️</div>
+                <h3>涉及促销标签数</h3>
+                <p id="total-tags">-</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var pg = createProgress('loading');
+        pg.start();
+        axios.get('/api/overview')
+            .then(function (response) {
+                if(response.data.error) throw new Error(response.data.error);
+                var data = response.data;
+                pg.finish();
+                document.getElementById('content').style.display = 'flex';
+                
+                document.getElementById('total-comments').innerText = data.total_comments;
+                document.getElementById('positive-rate').innerText = data.positive_rate + '%';
+                document.getElementById('avg-score').innerText = data.avg_score;
+                document.getElementById('total-tags').innerText = data.total_tags;
+            })
+            .catch(function (error) {
+                pg.finish();
+                var errorEl = document.getElementById('error');
+                errorEl.style.display = 'block';
+                errorEl.innerText = '加载失败: ' + error.message;
+            });
+    </script>
+</body>
+</html>

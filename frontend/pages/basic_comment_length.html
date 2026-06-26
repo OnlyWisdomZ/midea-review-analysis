@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>评论长度与用户参与度分析</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="../static/echarts.min.js"></script>
+    <script src="../static/axios.min.js"></script>
+    <script src="../static/progress.js"></script>
+</head>
+<body style="background: transparent; overflow-y: auto; display: block; height: auto;">
+    <div class="page-container">
+        <h2 class="page-title">评论长度与用户参与度分析</h2>
+        <div id="loading" class="loading">
+            <div class="loading-label">正在加载并进行分析，请稍候...</div>
+            <div class="progress-text">0%/100%</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-inner"></div></div>
+        </div>
+        <div id="error" class="error-msg" style="display:none;"></div>
+
+        <div class="grid-2" id="content" style="display:none;">
+
+            <div class="card">
+                <h3>评论字数分布</h3>
+                <div id="chart-length-dist" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <h3>各星级平均评论长度</h3>
+                <div id="chart-star-length" class="chart-container"></div>
+            </div>
+
+    <script>
+        var pg = createProgress('loading');
+        pg.start();
+        axios.get('/api/basic_analysis').then(function(res) {
+            if(res.data.error) throw new Error(res.data.error);
+            var data = res.data;
+            pg.finish();
+            document.getElementById('content').style.display = 'grid';
+
+            var lengthData = data.comment_length;
+
+            var chartLen = echarts.init(document.getElementById('chart-length-dist'));
+            chartLen.setOption({
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: Object.keys(lengthData.length_dist) },
+                yAxis: { type: 'value', name: '评论数量' },
+                series: [{ data: Object.values(lengthData.length_dist), type: 'bar', itemStyle: { color: '#3498db' } }]
+            });
+
+            var chartStarLen = echarts.init(document.getElementById('chart-star-length'));
+            chartStarLen.setOption({
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: lengthData.star_avg_length.map(function(d) { return d['星级']; }) },
+                yAxis: { type: 'value', name: '平均字数' },
+                series: [{ data: lengthData.star_avg_length.map(function(d) { return d['平均字数']; }), type: 'bar', itemStyle: { color: '#e67e22' } }]
+            });
+
+            window.addEventListener('resize', function() { chartLen.resize(); chartStarLen.resize(); });
+        }).catch(function(err) {
+            pg.finish();
+            var errorEl = document.getElementById('error');
+            errorEl.style.display = 'block'; errorEl.innerText = '加载失败: ' + err.message;
+        });
+    </script>
+
+        </div>
+    </div>
+</body>
+</html>

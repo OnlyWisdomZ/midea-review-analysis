@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>消极评论分析详情</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="../static/echarts.min.js"></script>
+    <script src="../static/axios.min.js"></script>
+    <script src="../static/progress.js"></script>
+    <script src="../static/echarts-wordcloud.min.js"></script>
+    <style>
+        .comment-list {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fff;
+        }
+        .comment-item {
+            padding: 15px;
+            border-bottom: 1px solid #f1f2f6;
+            margin-bottom: 10px;
+        }
+        .comment-item:last-child {
+            border-bottom: none;
+        }
+        .comment-meta {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .comment-content {
+            font-size: 14px;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+        .score-badge {
+            background-color: #fdedec;
+            color: #e74c3c;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body style="background: transparent; overflow-y: auto; display: block; height: auto;">
+    <div class="page-container">
+        <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 20px;">
+            <h2 class="page-title" style="margin-bottom: 0;">消极评论词云图及详情</h2>
+            <div style="display: flex; gap: 15px;">
+                <button class="btn-download" onclick="window.history.back()" style="background-color: #95a5a6; margin: 0;">返回上页</button>
+                <button class="btn-download" onclick="window.location.href='/api/download_sentiment?type=neg'" style="background-color: #e74c3c; margin: 0;">下载消极评论数据 (Excel)</button>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="loading-label">正在加载数据，请稍候...</div>
+            <div class="progress-text">0%/100%</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-inner"></div></div>
+        </div>
+        <div id="error" class="error-msg" style="display:none;"></div>
+
+        <div class="grid-2" id="content" style="display:none; grid-template-columns: 1fr 1fr;">
+            <div class="card">
+                <h3>消极评论高频词云图</h3>
+                <p style="color: #7f8c8d; font-size: 13px; margin-bottom: 10px;">已应用：全局停用词、积极情感停用词过滤</p>
+                <div id="chart-wordcloud" class="chart-container" style="height: 500px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3>消极评论列表 (Top 200)</h3>
+                <div class="comment-list" id="comment-list">
+                    <!-- Comments will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var pg = createProgress('loading');
+        sseRequest('/api/sentiment_details?type=neg', pg, function(data) {
+                document.getElementById('content').style.display = 'grid';
+
+                var chartWordCloud = echarts.init(document.getElementById('chart-wordcloud'));
+                var wcData = data.words;
+
+                chartWordCloud.setOption({
+                    tooltip: { show: true },
+                    series: [{
+                        type: 'wordCloud',
+                        shape: 'square',
+                        keepAspect: false,
+                        left: 'center',
+                        top: 'center',
+                        width: '95%',
+                        height: '95%',
+                        right: null,
+                        bottom: null,
+                        sizeRange: [14, 80],
+                        rotationRange: [-90, 90],
+                        rotationStep: 90,
+                        gridSize: 2,
+                        drawOutOfBound: false,
+                        layoutAnimation: true,
+                        textStyle: {
+                            fontFamily: 'sans-serif',
+                            fontWeight: 'bold',
+                            color: function () {
+                                return 'rgb(' + [
+                                    Math.round(Math.random() * 100 + 150),
+                                    Math.round(Math.random() * 50),
+                                    Math.round(Math.random() * 50)
+                                ].join(',') + ')';
+                            }
+                        },
+                        emphasis: {
+                            focus: 'self',
+                            textStyle: {
+                                shadowBlur: 10,
+                                shadowColor: '#333'
+                            }
+                        },
+                        data: wcData
+                    }]
+                });
+
+                window.addEventListener('resize', function() {
+                    chartWordCloud.resize();
+                });
+
+                var commentList = document.getElementById('comment-list');
+                data.comments.forEach(function(c) {
+                    var item = document.createElement('div');
+                    item.className = 'comment-item';
+                    item.innerHTML = `
+                        <div class="comment-meta">
+                            <span>时间: ${c.time}</span>
+                            <span class="score-badge">情感得分: ${c.score}</span>
+                        </div>
+                        <div class="comment-content">${c.content}</div>
+                    `;
+                    commentList.appendChild(item);
+                });
+            }, function(err) {
+                var errorEl = document.getElementById('error');
+                errorEl.style.display = 'block';
+                errorEl.innerText = '加载失败: ' + err.message;
+            });
+    </script>
+</body>
+</html>

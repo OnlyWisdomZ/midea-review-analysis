@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>K-Means 聚类可视化分析</title>
+    <script src="../static/echarts.min.js"></script>
+    <script src="../static/axios.min.js"></script>
+    <script src="../static/progress.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f2f5; }
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #333; }
+        .chart-container { height: 500px; width: 100%; }
+        .loading { text-align: center; padding: 50px; font-size: 16px; color: #666; }
+        .loading .progress-text { margin-top: 15px; font-size: 18px; font-weight: bold; color: #3498db; }
+        .loading .progress-bar-wrap { width: 300px; max-width: 80%; height: 8px; background: #e0e0e0; border-radius: 4px; margin: 10px auto 0; overflow: hidden; }
+        .loading .progress-bar-inner { height: 100%; background: linear-gradient(to right, #3498db, #2ecc71); border-radius: 4px; width: 0%; transition: width 0.3s ease; }
+        .flex-container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .flex-item { flex: 1; min-width: 45%; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0;">聚类特征雷达图分析</h2>
+            <button id="toggleBtn" onclick="toggleView()" style="display: none; padding: 8px 15px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.3s; margin-right: 120px;">切换为独立展示视图</button>
+        </div>
+        
+        <div id="loading1" class="loading">
+            <div class="loading-label">数据加载分析中，请稍候...</div>
+            <div class="progress-text">0%/100%</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-inner"></div></div>
+        </div>
+        
+        <div id="chart1" class="chart-container" style="display: none;"></div>
+        
+        <div id="singleCharts" class="flex-container" style="display: none; margin-top: 10px;">
+            <div id="subChart0" class="chart-container flex-item" style="height: 350px;"></div>
+            <div id="subChart1" class="chart-container flex-item" style="height: 350px;"></div>
+            <div id="subChart2" class="chart-container flex-item" style="height: 350px;"></div>
+            <div id="subChart3" class="chart-container flex-item" style="height: 350px;"></div>
+        </div>
+
+        <p style="margin-top: 15px; color: #666; font-size: 14px;">
+            注：展示不同群体在“价格敏感度”、“容量需求”、“外观关注度”、“功能质量要求”、“情感倾向”五个维度的特征对比。</p>
+    </div>
+
+    <script>
+        const chart1 = echarts.init(document.getElementById('chart1'));
+        let subCharts = [];
+        let windowChartData = null;
+        let isSingleView = false;
+
+        function toggleView() {
+            isSingleView = !isSingleView;
+            const btn = document.getElementById('toggleBtn');
+            if (isSingleView) {
+                document.getElementById('chart1').style.display = 'none';
+                document.getElementById('singleCharts').style.display = 'flex';
+                btn.innerText = '切换为合并展示视图';
+                btn.style.background = '#2ecc71';
+                renderSingleCharts(windowChartData);
+            } else {
+                document.getElementById('chart1').style.display = 'block';
+                document.getElementById('singleCharts').style.display = 'none';
+                btn.innerText = '切换为独立展示视图';
+                btn.style.background = '#3498db';
+                chart1.resize();
+            }
+        }
+
+        function renderSingleCharts(data) {
+            if (!data || !data.seriesData) return;
+            const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666'];
+            
+            for (let i = 0; i < data.seriesData.length; i++) {
+                if (!subCharts[i]) {
+                    subCharts[i] = echarts.init(document.getElementById('subChart' + i));
+                }
+                const option = {
+                    title: {
+                        text: data.seriesData[i].name,
+                        left: 'center',
+                        textStyle: { fontSize: 15, color: '#333' }
+                    },
+                    tooltip: {},
+                    radar: {
+                        indicator: data.indicator,
+                        radius: '60%'
+                    },
+                    series: [{
+                        type: 'radar',
+                        data: [data.seriesData[i]],
+                        itemStyle: { color: colors[i % colors.length] },
+                        areaStyle: { opacity: 0.3 }
+                    }]
+                };
+                subCharts[i].setOption(option);
+            }
+        }
+
+        const pg = createProgress('loading1');
+        sseRequest('/api/kmeans_viz', pg, function(data) {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            renderChart(data);
+        }, function(err) {
+            document.getElementById('loading1').style.display = 'block';
+            document.getElementById('loading1').querySelector('.loading-label').innerText = "请求失败，请检查后端服务是否开启。";
+        });
+
+        function renderChart(data) {
+            windowChartData = data;
+            document.getElementById('loading1').style.display = 'none';
+            document.getElementById('toggleBtn').style.display = 'block';
+            document.getElementById('chart1').style.display = 'block';
+            chart1.resize();
+
+            const option = {
+                tooltip: {},
+                legend: {
+                    data: ['追求性价比群体', '高端体验关注群体', '实用主义群体', '外观颜值党'],
+                    bottom: 0
+                },
+                radar: {
+                    indicator: data.indicator,
+                    radius: '65%'
+                },
+                series: [{
+                    name: '群体特征',
+                    type: 'radar',
+                    data: data.seriesData,
+                    areaStyle: {
+                        opacity: 0.1
+                    }
+                }]
+            };
+            chart1.setOption(option);
+        }
+
+        window.addEventListener('resize', function() {
+            chart1.resize();
+            subCharts.forEach(c => c && c.resize());
+        });
+    </script>
+</body>
+</html>

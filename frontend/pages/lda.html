@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>LDA模型分情感主题挖掘</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="../static/echarts.min.js"></script>
+    <script src="../static/axios.min.js"></script>
+    <script src="../static/progress.js"></script>
+    <style>
+        .topic-list { display: flex; flex-direction: column; gap: 15px; }
+        .topic-item { background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #3498db; }
+        .topic-item h4 { margin-bottom: 10px; color: #2c3e50; }
+        .topic-words { display: flex; flex-wrap: wrap; gap: 8px; }
+        .word-tag { background: #fff; padding: 4px 10px; border-radius: 12px; font-size: 14px; border: 1px solid #ddd; }
+        .topic-negative { border-left-color: #e74c3c; }
+    </style>
+</head>
+<body style="background: transparent; overflow-y: auto; display: block; height: auto;">
+    <div class="page-container">
+        <h2 class="page-title">基于LDA模型的分情感主题挖掘</h2>
+        <div id="loading" class="loading">
+            <div class="loading-label">正在进行LDA主题聚类分析，由于计算量大可能需要较长时间，请耐心等待...</div>
+            <div class="progress-text">0%/100%</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-inner"></div></div>
+        </div>
+        <div id="error" class="error-msg" style="display:none;"></div>
+
+        <div class="grid-2" id="content" style="display:none;">
+            <div class="card" style="grid-column: span 2;">
+                <h3>主题数量与评估指标关系</h3>
+                <div style="display: flex; justify-content: space-between; gap: 20px;">
+                    <div id="chart-perplexity" class="chart-container" style="flex: 1; height: 300px;"></div>
+                    <div id="chart-coherence" class="chart-container" style="flex: 1; height: 300px;"></div>
+                    <div id="chart-similarity" class="chart-container" style="flex: 1; height: 300px;"></div>
+                </div>
+            </div>
+            
+            <div class="card" style="grid-column: span 2; text-align: center; padding: 30px;">
+                <h3>主题寻优与深度交互图谱</h3>
+                <div style="margin: 20px 0; font-size: 16px; color: #2c3e50;">
+                    经过对平均困惑度的计算分析，系统推荐的最优主题数量为：<strong id="best-k-text" style="color: #e74c3c; font-size: 24px;">-</strong>
+                </div>
+                <div style="margin-bottom: 30px;">
+                    <button onclick="switchVis('all')" style="background-color: #2ecc71; padding: 12px 30px; font-size: 16px; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">生成全量主题交互图</button>
+                    <button onclick="switchVis('pos')" style="background-color: #3498db; padding: 12px 30px; font-size: 16px; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">生成积极主题交互图</button>
+                    <button onclick="switchVis('neg')" style="background-color: #e74c3c; padding: 12px 30px; font-size: 16px; color: white; border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">生成消极主题交互图</button>
+                </div>
+                
+                <hr style="margin: 40px 0; border: 0; border-top: 1px dashed #eee;">
+                
+                <div style="text-align: left;">
+                    <h3 style="margin-bottom: 20px; color: #34495e;">最优主题核心特征词概览</h3>
+                    <div style="display: flex; gap: 30px;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2ecc71; padding-bottom: 8px; margin-bottom: 15px;">
+                                <h4 style="color: #2ecc71; margin: 0;">全量评论主题提取</h4>
+                                <button onclick="downloadTopics('all')" class="btn-download" style="padding: 4px 10px; font-size: 12px; background-color: #2ecc71;">下载权重文本</button>
+                            </div>
+                            <div id="all-topics-container" class="topic-list"></div>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 8px; margin-bottom: 15px;">
+                                <h4 style="color: #3498db; margin: 0;">积极评论主题提取</h4>
+                                <button onclick="downloadTopics('pos')" class="btn-download" style="padding: 4px 10px; font-size: 12px;">下载权重文本</button>
+                            </div>
+                            <div id="pos-topics-container" class="topic-list"></div>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e74c3c; padding-bottom: 8px; margin-bottom: 15px;">
+                                <h4 style="color: #e74c3c; margin: 0;">消极评论主题提取</h4>
+                                <button onclick="downloadTopics('neg')" class="btn-download" style="padding: 4px 10px; font-size: 12px; background-color: #e74c3c;">下载权重文本</button>
+                            </div>
+                            <div id="neg-topics-container" class="topic-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 保存从后端获取的最新数据，用于下载
+        var latestLdaData = null;
+
+        function downloadTopics(type) {
+            if (!latestLdaData) {
+                alert('数据尚未加载完成，请稍后再试');
+                return;
+            }
+
+            var topics = [];
+            var title = '';
+            
+            if (type === 'all') {
+                topics = latestLdaData.all_topics;
+                title = '全量评论主题提取权重概览';
+            } else if (type === 'pos') {
+                topics = latestLdaData.positive_topics;
+                title = '积极评论主题提取权重概览';
+            } else if (type === 'neg') {
+                topics = latestLdaData.negative_topics;
+                title = '消极评论主题提取权重概览';
+            }
+
+            if (!topics || topics.length === 0) {
+                alert('暂无数据可下载');
+                return;
+            }
+
+            var content = title + '：\n\n';
+            topics.forEach(function(topic) {
+                content += topic.name + '：' + (topic.equation || '') + '\n';
+            });
+
+            // 创建 Blob 并下载
+            var blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            var url = window.URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = title + '.txt';
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        function switchVis(type) {
+            var kText = document.getElementById('best-k-text').innerText;
+            var k = parseInt(kText) || 3;
+            window.open('/api/lda_pyldavis?type=' + type + '&k=' + k, '_blank');
+        }
+
+        function renderTopics(containerId, topics, borderColor) {
+            var container = document.getElementById(containerId);
+            container.innerHTML = '';
+            if(!topics || topics.length === 0) {
+                container.innerHTML = '<p style="color: #95a5a6;">暂无提取结果</p>';
+                return;
+            }
+            topics.forEach(function(topic) {
+                var item = document.createElement('div');
+                item.className = 'topic-item';
+                if (borderColor) {
+                    item.style.borderLeftColor = borderColor;
+                }
+                var title = document.createElement('h4');
+                title.innerText = topic.name;
+                var wordList = document.createElement('div');
+                wordList.className = 'topic-words';
+                topic.words.forEach(function(w) {
+                    var span = document.createElement('span');
+                    span.className = 'word-tag';
+                    span.innerText = w;
+                    wordList.appendChild(span);
+                });
+                item.appendChild(title);
+                item.appendChild(wordList);
+                container.appendChild(item);
+            });
+        }
+
+        var pg = createProgress('loading');
+        sseRequest('/api/lda', pg, function(data) {
+                latestLdaData = data; // 保存数据供下载使用
+                document.getElementById('content').style.display = 'grid';
+
+                var pData = data.perplexity_data || [];
+
+                if (data.best_k) {
+                    document.getElementById('best-k-text').innerText = data.best_k;
+                } else if (pData.length > 0) {
+                    var bestK = pData[0].topics;
+                    var minP = pData[0].perplexity;
+                    for (var i = 1; i < pData.length; i++) {
+                        if (pData[i].perplexity < minP) {
+                            minP = pData[i].perplexity;
+                            bestK = pData[i].topics;
+                        }
+                    }
+                    document.getElementById('best-k-text').innerText = bestK;
+                }
+
+                renderTopics('all-topics-container', data.all_topics, '#2ecc71');
+                renderTopics('pos-topics-container', data.positive_topics, '#3498db');
+                renderTopics('neg-topics-container', data.negative_topics, '#e74c3c');
+                var cData = data.coherence_data || [];
+                var sData = data.similarity_data || [];
+
+                var kVals = pData.map(function(d) { return d.topics; });
+
+                var chartPerplexity = echarts.init(document.getElementById('chart-perplexity'));
+                var pVals = pData.map(function(d) { return d.perplexity; });
+                chartPerplexity.setOption({
+                    title: { text: '主题建模-困惑度', textStyle: {fontSize: 14}, left: 'center' },
+                    tooltip: { trigger: 'axis' },
+                    xAxis: { type: 'category', data: kVals, name: '主题数目' },
+                    yAxis: { type: 'value', name: '平均困惑度' },
+                    series: [{ data: pVals, type: 'line', marker: 'circle', itemStyle: { color: '#3498db' } }]
+                });
+
+                var chartCoherence = echarts.init(document.getElementById('chart-coherence'));
+                var cVals = cData.map(function(d) { return d.coherence; });
+                chartCoherence.setOption({
+                    title: { text: '主题建模-一致性', textStyle: {fontSize: 14}, left: 'center' },
+                    tooltip: { trigger: 'axis' },
+                    xAxis: { type: 'category', data: kVals.length ? kVals : [2,3,4,5,6], name: '主题数目' },
+                    yAxis: { type: 'value', name: '一致性大小' },
+                    series: [{ data: cVals, type: 'line', marker: 'circle', itemStyle: { color: '#2ecc71' } }]
+                });
+
+                var chartSimilarity = echarts.init(document.getElementById('chart-similarity'));
+                var sVals = sData.map(function(d) { return d.similarity; });
+                chartSimilarity.setOption({
+                    title: { text: '主题建模-相似度', textStyle: {fontSize: 14}, left: 'center' },
+                    tooltip: { trigger: 'axis' },
+                    xAxis: { type: 'category', data: kVals, name: '主题数目' },
+                    yAxis: { type: 'value', name: '平均余弦相似度' },
+                    series: [{ data: sVals, type: 'line', marker: 'circle', itemStyle: { color: '#e74c3c' } }]
+                });
+
+                window.addEventListener('resize', function() {
+                    chartPerplexity.resize();
+                    chartCoherence.resize();
+                    chartSimilarity.resize();
+                });
+            }, function(err) {
+                var errorEl = document.getElementById('error');
+                errorEl.style.display = 'block';
+                errorEl.innerText = '加载失败: ' + err.message;
+            });
+    </script>
+</body>
+</html>

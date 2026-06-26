@@ -1,0 +1,11 @@
+flask
+flask-cors
+pandas
+openpyxl
+snownlp
+jieba
+scikit-learn
+pymysql
+cryptography
+pyLDAvis
+requests

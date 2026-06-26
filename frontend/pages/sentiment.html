@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>SnowNLP评论情感分析</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="../static/echarts.min.js"></script>
+    <script src="../static/axios.min.js"></script>
+    <script src="../static/progress.js"></script>
+</head>
+<body style="background: transparent; overflow-y: auto; display: block; height: auto;">
+    <div class="page-container">
+        <h2 class="page-title">基于SnowNLP算法的评论情感分析</h2>
+        <div id="loading" class="loading">
+            <div class="loading-label">正在加载并进行情感分析计算，请稍候...</div>
+            <div class="progress-text">0%/100%</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-inner"></div></div>
+        </div>
+        <div id="error" class="error-msg" style="display:none;"></div>
+
+        <div class="action-bar" id="action-bar" style="display:none; margin-bottom: 20px;">
+            <button class="btn-download" onclick="window.location.href='sentiment_positive.html'" style="background-color: #3498db; margin-right: 15px;">查看积极评论词云图及详情</button>
+            <button class="btn-download" onclick="window.location.href='sentiment_negative.html'" style="background-color: #e74c3c;">查看消极评论词云图及详情</button>
+        </div>
+
+        <div class="grid-2" id="content" style="display:none;">
+            <div class="card">
+                <h3>评论情感倾向分类结果</h3>
+                <div id="chart-pie" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <h3>情感得分分布箱线图</h3>
+                <div id="chart-box" class="chart-container"></div>
+            </div>
+            <div class="card" style="grid-column: span 2;">
+                <h3>情感得分区间分布直方图</h3>
+                <div id="chart-hist" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var pg = createProgress('loading');
+        sseRequest('/api/sentiment', pg, function(data) {
+                document.getElementById('content').style.display = 'grid';
+                document.getElementById('action-bar').style.display = 'block';
+
+                var chartPie = echarts.init(document.getElementById('chart-pie'));
+                chartPie.setOption({
+                    tooltip: { trigger: 'item' },
+                    legend: { bottom: '0%' },
+                    color: ['#3498db', '#e74c3c', '#95a5a6'],
+                    series: [{
+                        type: 'pie',
+                        radius: '60%',
+                        data: data.pie_data,
+                        label: {
+                            show: true,
+                            formatter: '{b} {d}%'
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        }
+                    }]
+                });
+
+                var chartHist = echarts.init(document.getElementById('chart-hist'));
+                var chartBox = echarts.init(document.getElementById('chart-box'));
+                function getBoxData(arr) {
+                    if(!arr || arr.length === 0) return [0, 0, 0, 0, 0];
+                    arr.sort((a,b) => a-b);
+                    var min = arr[0];
+                    var max = arr[arr.length - 1];
+                    var q1 = arr[Math.floor(arr.length * 0.25)];
+                    var median = arr[Math.floor(arr.length * 0.5)];
+                    var q3 = arr[Math.floor(arr.length * 0.75)];
+                    return [min, q1, median, q3, max];
+                }
+                var boxData = [];
+                if (data.box_data) {
+                    boxData = [
+                        getBoxData(data.box_data.pos || []),
+                        getBoxData(data.box_data.neg || []),
+                        getBoxData(data.box_data.neu || [])
+                    ];
+                }
+                chartBox.setOption({
+                    tooltip: { trigger: 'item', axisPointer: { type: 'shadow' } },
+                    xAxis: { type: 'category', data: ['正面', '负面', '中性'] },
+                    yAxis: { type: 'value', name: '情感得分' },
+                    series: [{
+                        name: '得分分布',
+                        type: 'boxplot',
+                        data: boxData,
+                        itemStyle: { color: '#34495e', borderColor: '#2c3e50' }
+                    }]
+                });
+
+                chartHist.setOption({
+                    tooltip: { trigger: 'axis' },
+                    xAxis: {
+                        type: 'category',
+                        name: '情感得分',
+                        data: ['0.0-0.2', '0.2-0.4', '0.4-0.6', '0.6-0.8', '0.8-1.0']
+                    },
+                    yAxis: { type: 'value', name: '频数' },
+                    series: [{
+                        data: data.dist_data,
+                        type: 'bar',
+                        itemStyle: { color: '#7f8c8d' }
+                    }]
+                });
+
+                window.addEventListener('resize', function() {
+                    chartPie.resize();
+                    chartBox.resize();
+                    chartHist.resize();
+                });
+            }, function(err) {
+                var errorEl = document.getElementById('error');
+                errorEl.style.display = 'block';
+                errorEl.innerText = '加载失败: ' + err.message;
+            });
+    </script>
+</body>
+</html>

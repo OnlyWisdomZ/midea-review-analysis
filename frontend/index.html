@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>美的空气炸锅评论分析</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">美的空气炸锅评论分析</div>
+        <ul class="nav">
+            <div class="nav-group">总览</div>
+            <li class="active" onclick="loadPage('pages/overview.html', this)">数据概览</li>
+
+            <div class="nav-group">基础数据分析</div>
+            <li onclick="loadPage('pages/basic_comment_length.html', this)">评论长度与参与度</li>
+            <li onclick="loadPage('pages/basic_promo.html', this)">促销标签与评论量关联</li>
+            <li onclick="loadPage('pages/basic_score.html', this)">用户评分分布</li>
+            <li onclick="loadPage('pages/basic_time.html', this)">评论时间分布</li>
+
+            <div class="nav-group">消费者特征分析</div>
+            <li onclick="loadPage('pages/keywords_stat.html', this)">关键词特征提取</li>
+            <li onclick="loadPage('pages/keywords_tfidf.html', this)">TF-IDF 偏好挖掘</li>
+
+            <div class="nav-group">深度文本分析</div>
+            <li onclick="loadPage('pages/sentiment.html', this)">SnowNLP 情感分析</li>
+            <li onclick="loadPage('pages/lda.html', this)">LDA 主题分析</li>
+
+            <div class="nav-group">用户聚类分析</div>
+            <li onclick="loadPage('pages/kmeans_midea.html', this)">用户群体聚类</li>
+            <li onclick="loadPage('pages/kmeans_viz.html', this)">K-Means 聚类可视化分析</li>
+        </ul>
+    </div>
+    <div class="main-content">
+        <button onclick="logout()" style="position: fixed; top: 20px; right: 30px; z-index: 9999; padding: 8px 20px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: background 0.3s;" onmouseover="this.style.background='#c0392b'" onmouseout="this.style.background='#e74c3c'">退出系统</button>
+        <iframe id="content-frame" src="pages/overview.html" frameborder="0"></iframe>
+    </div>
+
+    <script>
+        // 权限校验
+        if (!localStorage.getItem('token')) {
+            window.location.href = 'login.html';
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            window.location.href = 'login.html';
+        }
+
+        function loadPage(url, el) {
+            document.getElementById('content-frame').src = url;
+            var navs = document.querySelectorAll('.nav li');
+            navs.forEach(function(item) {
+                item.classList.remove('active');
+            });
+            el.classList.add('active');
+        }
+    </script>
+</body>
+</html>

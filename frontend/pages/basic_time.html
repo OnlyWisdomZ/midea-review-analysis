@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>评论时间分布分析</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="../static/echarts.min.js"></script>
+    <script src="../static/axios.min.js"></script>
+    <script src="../static/progress.js"></script>
+</head>
+<body style="background: transparent; overflow-y: auto; display: block; height: auto;">
+    <div class="page-container">
+        <h2 class="page-title">评论时间分布分析</h2>
+        <div id="loading" class="loading">
+            <div class="loading-label">正在加载并进行分析，请稍候...</div>
+            <div class="progress-text">0%/100%</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-inner"></div></div>
+        </div>
+        <div id="error" class="error-msg" style="display:none;"></div>
+
+        <div class="grid-2" id="content" style="display:none;">
+
+            <div class="card" style="grid-column: span 2;">
+                <h3>时间趋势</h3>
+                <div id="chart-time" class="chart-container"></div>
+            </div>
+
+    <script>
+        var pg = createProgress('loading');
+        pg.start();
+        axios.get('/api/basic_analysis').then(function(res) {
+            if(res.data.error) throw new Error(res.data.error);
+            var data = res.data;
+            pg.finish();
+            document.getElementById('content').style.display = 'grid';
+            var chartTime = echarts.init(document.getElementById('chart-time'));
+            chartTime.setOption({
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: Object.keys(data.time_dist) },
+                yAxis: { type: 'value', name: '评论量' },
+                series: [{ data: Object.values(data.time_dist), type: 'line', areaStyle: {}, itemStyle: { color: '#2ecc71' } }]
+            });
+            window.addEventListener('resize', function() { chartTime.resize(); });
+        }).catch(function(err) {
+            pg.finish();
+            document.getElementById('error').style.display = 'block'; document.getElementById('error').innerText = '加载失败: ' + err.message;
+        });
+    </script>
+
+        </div>
+    </div>
+</body>
+</html>

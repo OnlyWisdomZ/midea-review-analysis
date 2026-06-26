@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>用户评分分布分析</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="../static/echarts.min.js"></script>
+    <script src="../static/axios.min.js"></script>
+    <script src="../static/progress.js"></script>
+</head>
+<body style="background: transparent; overflow-y: auto; display: block; height: auto;">
+    <div class="page-container">
+        <h2 class="page-title">用户评分分布分析</h2>
+        <div id="loading" class="loading">
+            <div class="loading-label">正在加载并进行分析，请稍候...</div>
+            <div class="progress-text">0%/100%</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-inner"></div></div>
+        </div>
+        <div id="error" class="error-msg" style="display:none;"></div>
+
+        <div class="grid-2" id="content" style="display:none;">
+
+            <div class="card" style="grid-column: span 2; display: flex; justify-content: center;">
+                <div style="width: 50%;">
+                    <h3>星级分布</h3>
+                    <div id="chart-star" class="chart-container"></div>
+                </div>
+            </div>
+
+    <script>
+        var pg = createProgress('loading');
+        pg.start();
+        axios.get('/api/basic_analysis').then(function(res) {
+            if(res.data.error) throw new Error(res.data.error);
+            var data = res.data;
+            pg.finish();
+            document.getElementById('content').style.display = 'grid';
+            var chartStar = echarts.init(document.getElementById('chart-star'));
+            var starData = [];
+            for(var k in data.star_dist) { starData.push({name: k + '星', value: data.star_dist[k]}); }
+            chartStar.setOption({
+                tooltip: { trigger: 'item' },
+                legend: { bottom: '0%' },
+                series: [{ type: 'pie', radius: '60%', data: starData, emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } } }]
+            });
+            window.addEventListener('resize', function() { chartStar.resize(); });
+        }).catch(function(err) {
+            pg.finish();
+            document.getElementById('error').style.display = 'block'; document.getElementById('error').innerText = '加载失败: ' + err.message;
+        });
+    </script>
+
+        </div>
+    </div>
+</body>
+</html>

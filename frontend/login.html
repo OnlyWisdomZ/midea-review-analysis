@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本分析系统 - 登录</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="static/axios.min.js"></script>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <h2 class="login-title">美的空气炸锅评论分析系统</h2>
+            <div class="form-group">
+                <input type="text" id="username" placeholder="请输入用户名 (admin)" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <input type="password" id="password" placeholder="请输入密码 (123456)" autocomplete="off">
+            </div>
+            <div class="form-group" id="confirm-password-group" style="display: none;">
+                <input type="password" id="confirm_password" placeholder="请确认密码" autocomplete="off">
+            </div>
+            <button class="login-btn" id="submit-btn" onclick="handleSubmit()">登 录</button>
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="javascript:void(0)" id="toggle-btn" onclick="toggleMode()" style="color: #3498db; text-decoration: none; font-size: 14px;">没有账号？去注册</a>
+            </div>
+            <div id="error-msg" style="color: red; text-align: center; margin-top: 10px; font-size: 14px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let isLoginMode = true;
+
+        function toggleMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('error-msg').innerText = '';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('confirm_password').value = '';
+
+            const loginContainer = document.querySelector('.login-container');
+
+            if (isLoginMode) {
+                document.getElementById('confirm-password-group').style.display = 'none';
+                document.getElementById('submit-btn').innerText = '登 录';
+                document.getElementById('toggle-btn').innerText = '没有账号？去注册';
+                document.querySelector('.login-title').innerText = '美的空气炸锅评论分析系统';
+                document.getElementById('username').placeholder = '请输入用户名 (admin)';
+                document.getElementById('password').placeholder = '请输入密码 (123456)';
+                
+                // 设置登录背景
+                loginContainer.style.background = 'url("photos/login.jpeg") center/cover no-repeat';
+                loginContainer.style.backgroundSize = '100% 100%';
+            } else {
+                document.getElementById('confirm-password-group').style.display = 'block';
+                document.getElementById('submit-btn').innerText = '注 册';
+                document.getElementById('toggle-btn').innerText = '已有账号？去登录';
+                document.querySelector('.login-title').innerText = '注册新账号';
+                document.getElementById('username').placeholder = '请输入用户名';
+                document.getElementById('password').placeholder = '请输入密码';
+                
+                // 设置注册背景
+                loginContainer.style.background = 'url("photos/reg.jpg") center/cover no-repeat';
+                loginContainer.style.backgroundSize = '100% 100%';
+            }
+        }
+        
+        // 初始加载时设置默认背景（登录页背景）
+        window.onload = function() {
+            const loginContainer = document.querySelector('.login-container');
+            loginContainer.style.background = 'url("photos/login.jpeg") center/cover no-repeat';
+            loginContainer.style.backgroundSize = '100% 100%';
+        };
+
+        function handleSubmit() {
+            if (isLoginMode) {
+                login();
+            } else {
+                register();
+            }
+        }
+
+        function register() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const cp = document.getElementById('confirm_password').value;
+
+            if (!u || !p) {
+                document.getElementById('error-msg').innerText = "用户名和密码不能为空";
+                return;
+            }
+            if (p !== cp) {
+                document.getElementById('error-msg').innerText = "两次输入的密码不一致";
+                return;
+            }
+
+            axios.post('/api/register', { username: u, password: p })
+                .then(res => {
+                    if(res.data.code === 200) {
+                        alert("注册成功，请登录");
+                        toggleMode();
+                    } else {
+                        document.getElementById('error-msg').innerText = res.data.message;
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('error-msg').innerText = "网络错误，注册失败";
+                });
+        }
+
+        function login() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            
+            axios.post('/api/login', { username: u, password: p })
+                .then(res => {
+                    if(res.data.code === 200) {
+                        localStorage.setItem('token', res.data.data.token);
+                        localStorage.setItem('username', res.data.data.username);
+                        window.location.href = 'index.html';
+                    } else {
+                        document.getElementById('error-msg').innerText = res.data.message;
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('error-msg').innerText = "网络错误，登录失败";
+                });
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if(e.key === 'Enter') {
+                handleSubmit();
+            }
+        });
+    </script>
+</body>
+</html>
